@@ -1,0 +1,175 @@
+// =====================================
+// Dynmap Claim Tool – Viewport Centrado
+// =====================================
+
+// ---------- Mundo ----------
+PVector worldP1 = null;
+PVector worldP2 = null;
+
+// ---------- Rectángulo (mundo) ----------
+float rectWorldMinX, rectWorldMaxX;
+float rectWorldMinZ, rectWorldMaxZ;
+
+// ---------- Viewport ----------
+float viewScale;
+float margin = 80;
+
+// ---------- Trazo ----------
+ArrayList<PVector> path = new ArrayList<>();
+
+// ---------- Imagen ----------
+PImage overlayImage;
+
+void setup() {
+  size(1200, 800);
+  textSize(14);
+}
+
+void draw() {
+  background(30);
+
+  if (worldP1 != null && worldP2 != null) {
+    computeRectWorld();
+    drawRectAndImage();
+    drawPath();
+    drawInfo();
+  } else {
+    fill(200);
+    text("Presiona 1 y 2 para ingresar coordenadas del mundo", 20, 40);
+  }
+}
+
+// =====================================
+// Mouse → Trazo (WORLD)
+// =====================================
+void mouseDragged() {
+  if (worldP1 == null || worldP2 == null) return;
+
+  if (mouseX < margin || mouseX > width - margin) return;
+  if (mouseY < margin || mouseY > height - margin) return;
+
+  path.add(screenToWorld(new PVector(mouseX, mouseY)));
+}
+
+// =====================================
+// Dibujo
+// =====================================
+void drawRectAndImage() {
+  float rw = rectWorldMaxX - rectWorldMinX;
+  float rz = rectWorldMaxZ - rectWorldMinZ;
+
+  float vw = width - 2 * margin;
+  float vh = height - 2 * margin;
+
+  viewScale = min(vw / rw, vh / rz);
+
+  float sw = rw * viewScale;
+  float sh = rz * viewScale;
+
+  float sx = (width - sw) / 2;
+  float sy = (height - sh) / 2;
+
+  // Imagen
+  if (overlayImage != null) {
+    image(overlayImage, sx, sy, sw, sh);
+  }
+
+  // Rectángulo
+  noFill();
+  stroke(0, 255, 0);
+  rect(sx, sy, sw, sh);
+}
+
+void drawPath() {
+  stroke(255, 200, 0);
+  noFill();
+  beginShape();
+  for (PVector p : path) {
+    PVector s = worldToScreen(p);
+    vertex(s.x, s.y);
+  }
+  endShape();
+}
+
+void drawInfo() {
+  PVector w = screenToWorld(new PVector(mouseX, mouseY));
+
+  fill(255);
+  text("Mouse px: " + mouseX + ", " + mouseY, 10, 25);
+  text("World x,z: " + int(w.x) + ", " + int(w.y), 10, 45);
+
+  text("Rectángulo mundo:", 10, 70);
+  text("A: " + int(rectWorldMinX) + ", " + int(rectWorldMinZ), 10, 90);
+  text("B: " + int(rectWorldMaxX) + ", " + int(rectWorldMaxZ), 10, 110);
+
+  text("Arrastrar = trazar | I = imagen | S = exportar | C = limpiar", 10, height - 20);
+}
+
+// =====================================
+// Teclado
+// =====================================
+void keyPressed() {
+  if (key == '1') worldP1 = pedirCoordenadas("Esquina 1");
+  if (key == '2') worldP2 = pedirCoordenadas("Esquina 2");
+
+  if (key == 'i' || key == 'I')
+    selectInput("Selecciona imagen:", "imagenSeleccionada");
+
+  if (key == 's' || key == 'S')
+    exportar();
+
+  if (key == 'c' || key == 'C') {
+    path.clear();
+    overlayImage = null;
+  }
+}
+
+// =====================================
+// Export
+// =====================================
+void exportar() {
+  PrintWriter out = createWriter("points.txt");
+  for (PVector p : path) {
+    out.println(int(p.x) + " " + int(p.y));
+  }
+  out.close();
+  println("Exportado points.txt");
+}
+
+// =====================================
+// Imagen
+// =====================================
+void imagenSeleccionada(File f) {
+  if (f != null) overlayImage = loadImage(f.getAbsolutePath());
+}
+
+// =====================================
+// Matemática
+// =====================================
+void computeRectWorld() {
+  rectWorldMinX = min(worldP1.x, worldP2.x);
+  rectWorldMaxX = max(worldP1.x, worldP2.x);
+  rectWorldMinZ = min(worldP1.y, worldP2.y);
+  rectWorldMaxZ = max(worldP1.y, worldP2.y);
+}
+
+PVector worldToScreen(PVector w) {
+  float sx = (w.x - rectWorldMinX) * viewScale + (width - (rectWorldMaxX - rectWorldMinX) * viewScale) / 2;
+  float sy = (w.y - rectWorldMinZ) * viewScale + (height - (rectWorldMaxZ - rectWorldMinZ) * viewScale) / 2;
+  return new PVector(sx, sy);
+}
+
+PVector screenToWorld(PVector s) {
+  float wx = (s.x - (width - (rectWorldMaxX - rectWorldMinX) * viewScale) / 2) / viewScale + rectWorldMinX;
+  float wz = (s.y - (height - (rectWorldMaxZ - rectWorldMinZ) * viewScale) / 2) / viewScale + rectWorldMinZ;
+  return new PVector(wx, wz);
+}
+
+// =====================================
+// Input
+// =====================================
+PVector pedirCoordenadas(String label) {
+  float x = float(javax.swing.JOptionPane.showInputDialog(label + " - X"));
+  float z = float(javax.swing.JOptionPane.showInputDialog(label + " - Z"));
+  return new PVector(x, z);
+}
